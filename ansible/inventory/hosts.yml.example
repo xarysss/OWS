@@ -1,0 +1,15 @@
+# Modèle d'inventaire : adresses factices, à générer depuis les sorties OpenTofu.
+all:
+  vars:
+    ansible_user: ubuntu
+  children:
+    control_plane:
+      hosts:
+        ows-cp-1: { ansible_host: 192.168.100.11 }
+        ows-cp-2: { ansible_host: 192.168.100.12 }
+        ows-cp-3: { ansible_host: 192.168.100.13 }
+    workers:
+      hosts:
+        ows-worker-1: { ansible_host: 192.168.100.21 }
+        ows-worker-2: { ansible_host: 192.168.100.22 }
+        ows-worker-3: { ansible_host: 192.168.100.23 }

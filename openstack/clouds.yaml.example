@@ -1,0 +1,12 @@
+# Copier vers ~/.config/openstack/clouds.yaml et remplacer les valeurs.
+# Ne jamais versionner le vrai fichier.
+clouds:
+  ows:
+    auth_type: v3applicationcredential
+    auth:
+      auth_url: http://10.202.100.10:5000/v3
+      application_credential_id: "REMPLACER"
+      application_credential_secret: "REMPLACER"
+    region_name: RegionOne
+    interface: public
+    identity_api_version: 3
