@@ -1,0 +1,47 @@
+# Velero (chart vmware-tanzu/velero). Sauvegarde des ressources Kubernetes et des
+# volumes (node-agent / Kopia) vers un S3 HORS du cluster.
+# Cible à confirmer à l'audit : S3 de l'OpenStack (Swift/RGW du cloud) ou autre.
+initContainers:
+  - name: velero-plugin-for-aws
+    image: velero/velero-plugin-for-aws:v1.11.1
+    imagePullPolicy: IfNotPresent
+    volumeMounts:
+      - mountPath: /target
+        name: plugins
+
+configuration:
+  backupStorageLocation:
+    - name: default
+      provider: aws
+      bucket: ows-velero
+      default: true
+      config:
+        region: default
+        s3ForcePathStyle: "true"
+        s3Url: https://S3_ENDPOINT_A_CONFIRMER    # ex. endpoint S3 Swift du cloud
+        checksumAlgorithm: ""
+  volumeSnapshotLocation: []
+  defaultVolumesToFsBackup: true
+  uploaderType: kopia
+
+# Clés S3 : Secret velero-credentials (clé "cloud"), créé par External Secrets
+# depuis Vault secret/ows/velero. Jamais en clair ici.
+credentials:
+  useSecret: true
+  existingSecret: velero-credentials
+
+deployNodeAgent: true
+nodeAgent:
+  resources:
+    requests: { cpu: 100m, memory: 256Mi }
+    limits: { memory: 1Gi }
+
+snapshotsEnabled: false
+
+metrics:
+  enabled: true
+  serviceMonitor:
+    enabled: true
+
+# Les planifications sont dans gitops/manifests/velero-schedules/
+schedules: {}

@@ -1,0 +1,32 @@
+# Sauvegardes planifiées (heure de Paris via CRON_TZ).
+apiVersion: velero.io/v1
+kind: Schedule
+metadata:
+  name: ows-daily
+  namespace: velero
+spec:
+  schedule: "CRON_TZ=Europe/Paris 0 2 * * *"
+  useOwnerReferencesInBackup: false
+  template:
+    ttl: 168h0m0s            # 7 jours
+    includedNamespaces: ["*"]
+    excludedNamespaces:
+      - kube-system
+      - rook-ceph            # les données Ceph sont sauvegardées via les PVC des applications
+      - velero
+    defaultVolumesToFsBackup: true
+    storageLocation: default
+---
+apiVersion: velero.io/v1
+kind: Schedule
+metadata:
+  name: ows-weekly-config
+  namespace: velero
+spec:
+  schedule: "CRON_TZ=Europe/Paris 0 3 * * 0"
+  template:
+    ttl: 720h0m0s            # 30 jours, ressources seulement (sans volumes)
+    includedNamespaces: ["*"]
+    snapshotVolumes: false
+    defaultVolumesToFsBackup: false
+    storageLocation: default
