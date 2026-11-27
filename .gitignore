@@ -1,4 +1,4 @@
-# --- Secrets ---
+# --- Secrets : jamais dans Git ---
 clouds.yaml
 secure.yaml
 *openrc*.sh
@@ -10,32 +10,39 @@ id_ed25519*
 *.kubeconfig
 kubeconfig*
 admin.conf
+*.conf
+!kubernetes/**/*.conf
 .env
 .env.*
 *.vault-pass
 vault-token*
+vault-init*.json
+ows-secrets/
 secrets/
 !*.example
 
-# --- OpenTofu / Terraform ---
+# --- OpenTofu ---
 .terraform/
+.terraform.lock.hcl.bak
 *.tfstate
 *.tfstate.*
 *.tfplan
 tfplan
 crash.log
+terraform.tfvars
 *.tfvars
+*.auto.tfvars
 !*.tfvars.example
 override.tf
 override.tf.json
 *_override.tf
 
-# --- Ansible ---
-*.retry
-ansible/inventory/hosts.ini
-ansible/inventory/hosts.yml
+# --- Générés par OpenTofu, propres à un déploiement ---
+scripts/cluster.env
+scripts/ssh_config
 
 # --- Divers ---
+*.retry
 .DS_Store
 Thumbs.db
 *.swp

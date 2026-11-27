@@ -12,9 +12,9 @@
 
 - Un dossier = un domaine (voir le README principal). Chaque dossier a un `README.md` qui
   décrit son contenu : le mettre à jour quand on y ajoute des fichiers.
-- Scripts : `scripts/NN-verbe-objet.sh`, en Bash, `set -euo pipefail`, idempotents si possible.
-- Documentation : `docs/NN-sujet.md`, en français ; schémas dans `docs/images/`.
-
+- Scripts : dans `scripts/` (ceux lancés sur les nœuds dans `scripts/node/`), en Bash,
+  `set -euo pipefail`, idempotents si possible.
+- Documentation : `docs/sujet.md`, en français, référencée dans `docs/README.md` ; schémas dans `docs/images/`.
 ## Secrets
 
 Jamais de secret versionné. Fournir un fichier `*.example` avec des valeurs factices et lire

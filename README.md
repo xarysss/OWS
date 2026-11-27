@@ -19,12 +19,30 @@ un ticket par étape du plan, étiqueté par phase (`phase-0` à `phase-15`).
 
 | Dossier | Contenu |
 |---|---|
-| [`docs/`](docs/) | Documentation : installation, secrets, upgrade, coûts, RETEX, rendu |
+| [`docs/`](docs/) | Guide d'installation, secrets, upgrade, choix Helm/Operator, dossier commercial, RETEX |
 | [`openstack/`](openstack/) | Infrastructure OpenStack en OpenTofu (réseau, sécurité, VM, volumes, VIP) |
-| [`ansible/`](ansible/) | Préparation des nœuds et installation kubeadm |
-| [`kubernetes/`](kubernetes/) | Configurations kubeadm, valeurs Cilium initiales, upgrade |
-| [`gitops/`](gitops/) | ArgoCD : bootstrap et applications déployées par GitOps |
-| [`scripts/`](scripts/) | Scripts d'outillage, de vérification et de redéploiement |
+| [`scripts/`](scripts/) | Déploiement du cluster (`deploy-cluster.sh`), Vault, snapshot etcd, scripts des nœuds |
+| [`kubernetes/`](kubernetes/) | Modèles kubeadm, kube-vip, politiques Vault |
+| [`gitops/`](gitops/) | ArgoCD : app-of-apps, applications, values Helm, manifests |
+
+Point d'entrée : [docs/guide-installation.md](docs/guide-installation.md).
+
+## À ajuster après l'audit OpenStack (#3)
+
+| Valeur | Fichier | Défaut |
+|---|---|---|
+| Image, gabarits, réseau externe | `openstack/tofu/terraform.tfvars` | `ubuntu-24.04`, `ows.cp`, `ows.worker`, `public` |
+| CIDR d'administration | idem | `10.202.100.0/24` |
+| Interface réseau des VM | `scripts/versions.env` (`KUBE_VIP_INTERFACE`) | `ens3` (repli auto sur l'interface par défaut) |
+| Endpoint S3 Velero | `gitops/values/velero.yaml` | `S3_ENDPOINT_A_CONFIRMER` |
+| Versions de charts | `gitops/apps/*.yaml` | à vérifier avec `helm search repo <chart> --versions` |
+
+Si le réseau des nœuds change (`subnet_cidr`), mettre aussi à jour `gitops/values/cilium.yaml`
+(`k8sServiceHost`), `gitops/manifests/metallb-config/ip-pool.yaml` et les annotations
+`loadBalancerIPs` des values.
+
+> **Non testé à ce stade** : la syntaxe YAML et Bash est contrôlée, mais rien n'a encore tourné
+> sur le cloud. Les versions de charts sont à confirmer au premier `helm repo update`.
 
 ## Étapes du plan
 
