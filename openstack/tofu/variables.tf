@@ -107,7 +107,7 @@ variable "external_network_name" {
 
 variable "dns_nameservers" {
   type    = list(string)
-  default = ["1.1.1.1", "9.9.9.9"]
+  default = ["1.1.1.1", "10.255.255.200"] # 9.9.9.9 répond REFUSED depuis le réseau de l'IUT
 }
 
 variable "subnet_cidr" {
