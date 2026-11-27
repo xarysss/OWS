@@ -11,11 +11,12 @@ variable "prefix" {
 }
 
 # ---------- Taille du cluster ----------
-# Phase 1 (validation) : 1 + 1.  Phase 2 (HA) : 3 + 3.
-# Passer de 1 à 3 ne recrée pas les nœuds existants (for_each à clés stables).
+# Cible : 3 control planes (.11-.13) + 3 workers (.21-.23).
+# Pour un essai rapide : 1 + 1. Passer de 1 à 3 ne recrée pas les nœuds existants
+# (for_each à clés stables).
 variable "control_plane_count" {
   type    = number
-  default = 1
+  default = 3
   validation {
     condition     = contains([1, 3], var.control_plane_count)
     error_message = "1 (phase validation) ou 3 (HA, quorum etcd)."
@@ -24,14 +25,14 @@ variable "control_plane_count" {
 
 variable "worker_count" {
   type    = number
-  default = 1
+  default = 3
   validation {
     condition     = var.worker_count >= 1 && var.worker_count <= 3
     error_message = "Entre 1 et 3 workers."
   }
 }
 
-# ---------- Image et gabarits (à confirmer à l'audit du projet) ----------
+# ---------- Image et gabarits (noms à confirmer à l'audit du projet, phase 2) ----------
 variable "image_name" {
   description = "Image Glance Ubuntu 24.04 (openstack image list)."
   type        = string
@@ -50,6 +51,31 @@ variable "flavor_worker" {
   default     = "ows.worker"
 }
 
+variable "create_flavors" {
+  description = "Créer les gabarits ows.cp et ows.worker (droits admin, cloud tout-en-un). false = gabarits existants."
+  type        = bool
+  default     = false
+}
+
+variable "flavor_specs" {
+  description = "Taille des gabarits créés si create_flavors = true (RAM en Mo, disque racine en Go)."
+  type = map(object({
+    vcpus = number
+    ram   = number
+    disk  = number
+  }))
+  default = {
+    cp     = { vcpus = 3, ram = 8192, disk = 40 }
+    worker = { vcpus = 4, ram = 16384, disk = 40 }
+  }
+}
+
+variable "boot_from_volume" {
+  description = "Disque système sur un volume Cinder (true) ou disque éphémère Nova (false)."
+  type        = bool
+  default     = true
+}
+
 variable "boot_volume_size" {
   description = "Taille du disque système (Go), démarrage sur volume Cinder."
   type        = number
@@ -57,9 +83,13 @@ variable "boot_volume_size" {
 }
 
 variable "ceph_volume_size" {
-  description = "Volume vierge par worker pour un OSD Ceph (Go)."
+  description = "Volume vierge par worker pour un OSD Ceph (Go). 0 = pas de volume."
   type        = number
   default     = 100
+  validation {
+    condition     = var.ceph_volume_size == 0 || var.ceph_volume_size >= 10
+    error_message = "0 (désactivé) ou au moins 10 Go."
+  }
 }
 
 variable "volume_type" {
@@ -84,6 +114,10 @@ variable "subnet_cidr" {
   description = "Réseau des nœuds. Ne doit chevaucher ni 10.244.0.0/16 (pods) ni 10.96.0.0/12 (services)."
   type        = string
   default     = "10.20.0.0/24"
+  validation {
+    condition     = can(cidrhost(var.subnet_cidr, 254)) && !contains(["10.244.0.0/16", "10.96.0.0/12"], var.subnet_cidr)
+    error_message = "CIDR IPv4 d'au moins /24, distinct des réseaux pods et services."
+  }
 }
 
 variable "api_vip_hostnum" {
@@ -103,6 +137,10 @@ variable "metallb_range" {
     first_hostnum = 200
     last_hostnum  = 223
     cidr          = "10.20.0.192/27"
+  }
+  validation {
+    condition     = var.metallb_range.first_hostnum > 190 && var.metallb_range.first_hostnum <= var.metallb_range.last_hostnum && var.metallb_range.last_hostnum < 255
+    error_message = "La plage MetalLB doit être hors du DHCP (.50-.190) et croissante."
   }
 }
 
@@ -137,5 +175,9 @@ variable "service_floating_ips" {
     argocd  = 201
     grafana = 202
     vault   = 203
+  }
+  validation {
+    condition     = alltrue([for n in values(var.service_floating_ips) : n >= var.metallb_range.first_hostnum && n <= var.metallb_range.last_hostnum])
+    error_message = "Chaque adresse de service doit être dans la plage MetalLB."
   }
 }

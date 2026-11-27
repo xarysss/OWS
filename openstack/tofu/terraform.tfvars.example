@@ -1,16 +1,19 @@
-# Copier en terraform.tfvars (ignoré par Git) et ajuster après l'audit du projet.
-os_cloud             = "ows"
-prefix               = "ows"
+# Copier en terraform.tfvars (ignoré par Git) et ajuster après l'audit du projet (phase 2).
+os_cloud = "ows"
+prefix   = "ows"
 
-# Phase 1 : 1 + 1      Phase 2 : 3 + 3
-control_plane_count  = 1
-worker_count         = 1
+# Cible 3 + 3 (CP .11-.13, workers .21-.23). Essai rapide : 1 + 1.
+control_plane_count = 3
+worker_count        = 3
 
 image_name           = "ubuntu-24.04"
-flavor_control_plane = "ows.cp"      # 3 vCPU / 8 Go
-flavor_worker        = "ows.worker"  # 4 vCPU / 12-16 Go
-boot_volume_size     = 40
-ceph_volume_size     = 100
+flavor_control_plane = "ows.cp"     # 3 vCPU / 8 Go
+flavor_worker        = "ows.worker" # 4 vCPU / 16 Go
+create_flavors       = false        # true pour que tofu crée les deux gabarits (admin)
+
+boot_from_volume = true # false si Cinder est indisponible
+boot_volume_size = 40
+ceph_volume_size = 100 # 0 = pas de volume OSD
 
 external_network_name = "public"
 subnet_cidr           = "10.20.0.0/24"

@@ -39,9 +39,9 @@ resource "openstack_networking_router_interface_v2" "k8s" {
 # ---------- VIP de l'API (portée par kube-vip en ARP) ----------
 # Port réservé, jamais attaché à une VM : il bloque l'adresse et porte l'IP flottante.
 resource "openstack_networking_port_v2" "api_vip" {
-  name           = "${var.prefix}-api-vip"
-  network_id     = openstack_networking_network_v2.k8s.id
-  admin_state_up = true
+  name               = "${var.prefix}-api-vip"
+  network_id         = openstack_networking_network_v2.k8s.id
+  admin_state_up     = true
   security_group_ids = [openstack_networking_secgroup_v2.k8s.id]
   fixed_ip {
     subnet_id  = openstack_networking_subnet_v2.k8s.id
@@ -66,10 +66,10 @@ resource "openstack_networking_floatingip_associate_v2" "api_vip" {
 
 # ---------- Adresses MetalLB exposées à l'extérieur ----------
 resource "openstack_networking_port_v2" "lb" {
-  for_each       = var.service_floating_ips
-  name           = "${var.prefix}-lb-${each.key}"
-  network_id     = openstack_networking_network_v2.k8s.id
-  admin_state_up = true
+  for_each           = var.service_floating_ips
+  name               = "${var.prefix}-lb-${each.key}"
+  network_id         = openstack_networking_network_v2.k8s.id
+  admin_state_up     = true
   security_group_ids = [openstack_networking_secgroup_v2.ingress.id]
   fixed_ip {
     subnet_id  = openstack_networking_subnet_v2.k8s.id
