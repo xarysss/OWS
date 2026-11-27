@@ -1,0 +1,19 @@
+# Opérateur Rook (chart rook-release/rook-ceph). Rook v1.15 prend en charge
+# Kubernetes 1.26 à 1.31 : la même version sert avant et après l'upgrade.
+crds:
+  enabled: true
+csi:
+  enableRbdDriver: true
+  enableCephfsDriver: false   # pas de CephFS : économise des ressources
+  provisionerReplicas: 2
+  serviceMonitor:
+    enabled: true
+enableDiscoveryDaemon: false
+monitoring:
+  enabled: true
+resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+  limits:
+    memory: 512Mi

@@ -1,0 +1,128 @@
+# Cluster Ceph (chart rook-release/rook-ceph-cluster).
+# Un OSD par worker sur le volume Cinder vierge /dev/vdb (openstack/tofu/compute.tf).
+operatorNamespace: rook-ceph
+
+toolbox:
+  enabled: true
+
+monitoring:
+  enabled: true
+  createPrometheusRules: true
+
+cephClusterSpec:
+  cephVersion:
+    image: quay.io/ceph/ceph:v18.2.4   # Reef
+  dataDirHostPath: /var/lib/rook
+  mon:
+    count: 3
+    allowMultiplePerNode: false
+  mgr:
+    count: 2
+    modules:
+      - name: rook
+        enabled: true
+      - name: pg_autoscaler
+        enabled: true
+  dashboard:
+    enabled: true
+    ssl: false
+  network:
+    connections:
+      encryption:
+        enabled: false
+      compression:
+        enabled: false
+  crashCollector:
+    disable: false
+  placement:
+    all:
+      nodeAffinity:
+        requiredDuringSchedulingIgnoredDuringExecution:
+          nodeSelectorTerms:
+            - matchExpressions:
+                - key: node-role.kubernetes.io/worker
+                  operator: Exists
+  storage:
+    useAllNodes: false
+    useAllDevices: false
+    nodes:
+      - name: ows-worker-1
+        devices: [{ name: vdb }]
+      - name: ows-worker-2
+        devices: [{ name: vdb }]
+      - name: ows-worker-3
+        devices: [{ name: vdb }]
+  resources:
+    mgr:
+      requests: { cpu: 200m, memory: 512Mi }
+      limits: { memory: 1Gi }
+    mon:
+      requests: { cpu: 200m, memory: 512Mi }
+      limits: { memory: 1Gi }
+    osd:
+      requests: { cpu: 300m, memory: 2Gi }
+      limits: { memory: 4Gi }
+  healthCheck:
+    daemonHealth:
+      mon:
+        interval: 45s
+      osd:
+        interval: 60s
+
+# Stockage bloc (RBD), classe par défaut du cluster.
+cephBlockPools:
+  - name: replicapool
+    spec:
+      failureDomain: host
+      replicated:
+        size: 3
+    storageClass:
+      enabled: true
+      name: ceph-block
+      isDefault: true
+      reclaimPolicy: Delete
+      allowVolumeExpansion: true
+      volumeBindingMode: Immediate
+      parameters:
+        imageFormat: "2"
+        imageFeatures: layering
+        csi.storage.k8s.io/provisioner-secret-name: rook-csi-rbd-provisioner
+        csi.storage.k8s.io/provisioner-secret-namespace: rook-ceph
+        csi.storage.k8s.io/controller-expand-secret-name: rook-csi-rbd-provisioner
+        csi.storage.k8s.io/controller-expand-secret-namespace: rook-ceph
+        csi.storage.k8s.io/node-stage-secret-name: rook-csi-rbd-node
+        csi.storage.k8s.io/node-stage-secret-namespace: rook-ceph
+        csi.storage.k8s.io/fstype: ext4
+
+cephFileSystems: []
+
+# Stockage objet S3 (RGW) pour les applications ; Velero sauvegarde HORS cluster.
+cephObjectStores:
+  - name: ows-s3
+    spec:
+      metadataPool:
+        failureDomain: host
+        replicated:
+          size: 3
+      dataPool:
+        failureDomain: host
+        erasureCoded:
+          dataChunks: 2
+          codingChunks: 1
+      preservePoolsOnDelete: true
+      gateway:
+        port: 80
+        instances: 1
+        resources:
+          requests: { cpu: 200m, memory: 512Mi }
+          limits: { memory: 1Gi }
+    storageClass:
+      enabled: true
+      name: ceph-bucket
+      reclaimPolicy: Delete
+      volumeBindingMode: Immediate
+    ingress:
+      enabled: false
+
+cephBlockPoolsVolumeSnapshotClass:
+  enabled: false
