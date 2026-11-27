@@ -66,7 +66,9 @@ for w in "${WK_NAMES[@]}"; do
 done
 
 log "5. Charge de test (namespace ${NS})"
-kubectl create namespace "$NS" --dry-run=client -o yaml | kubectl apply -f - >/dev/null
+# Repart d'un namespace propre (celui d'un passage précédent peut être encore en suppression).
+kubectl delete namespace "$NS" --ignore-not-found --timeout=2m >/dev/null
+kubectl create namespace "$NS" >/dev/null
 kubectl apply -n "$NS" -f - >/dev/null <<'YAML'
 apiVersion: apps/v1
 kind: Deployment
