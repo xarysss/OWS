@@ -24,3 +24,6 @@ enable_cinder: "yes"
 enable_cinder_backend_lvm: "yes"
 enable_cinder_backup: "no"
 cinder_volume_group: "cinder-volumes"
+
+# Images publiques quay.io/openstack.kolla : prévues pour les tests, acceptées pour cette SAE.
+kolla_test_images: "yes"

@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 # Installe Kolla-Ansible, prépare /etc/kolla et le groupe LVM de Cinder. Rejouable.
 set -euo pipefail
+# Empêche deux exécutions simultanées.
+exec 9>/run/lock/ows-kolla.lock
+flock -n 9 || { echo "STOP : un autre script ows est déjà en cours"; exit 1; }
 here=$(cd "$(dirname "$0")" && pwd)
 venv=/opt/kolla-venv
 disk=${CINDER_DISK:-/dev/sda}

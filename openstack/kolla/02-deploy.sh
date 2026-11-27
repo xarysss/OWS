@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 # Déploie OpenStack tout-en-un. Journal : /var/log/ows-kolla.log
 set -euo pipefail
+# Empêche deux exécutions simultanées.
+exec 9>/run/lock/ows-kolla.lock
+flock -n 9 || { echo "STOP : un autre script ows est déjà en cours"; exit 1; }
 # shellcheck disable=SC1091
 . /opt/kolla-venv/bin/activate
 exec > >(tee -a /var/log/ows-kolla.log) 2>&1
