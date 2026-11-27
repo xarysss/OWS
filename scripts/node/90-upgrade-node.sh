@@ -43,7 +43,7 @@ apt-mark unhold kubelet kubectl >/dev/null
 apt-get install -y -qq "kubelet=${PKG}" "kubectl=${PKG}" >/dev/null
 apt-mark hold kubelet kubectl >/dev/null
 # Image pause attendue par 1.31
-sed -i 's#sandbox_image = ".*"#sandbox_image = "registry.k8s.io/pause:3.10"#' /etc/containerd/config.toml
+sed -i -E 's#^([[:space:]]*sandbox(_image)?) = .*#\1 = "registry.k8s.io/pause:3.10"#' /etc/containerd/config.toml
 systemctl restart containerd
 systemctl daemon-reload
 systemctl restart kubelet

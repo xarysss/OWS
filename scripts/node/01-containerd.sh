@@ -14,7 +14,9 @@ containerd config default > /etc/containerd/config.toml
 # kubelet et containerd doivent utiliser le même pilote cgroup (systemd).
 sed -i 's/SystemdCgroup = false/SystemdCgroup = true/' /etc/containerd/config.toml
 # Image pause attendue par kubeadm (3.9 en 1.30, 3.10 en 1.31).
-sed -i "s#sandbox_image = \".*\"#sandbox_image = \"${PAUSE_IMAGE}\"#" /etc/containerd/config.toml
+# containerd 1.7 : sandbox_image = "..." ; containerd 2.x : sandbox = '...'
+sed -i -E "s#^([[:space:]]*sandbox(_image)?) = .*#\1 = \"${PAUSE_IMAGE}\"#" /etc/containerd/config.toml
+grep -q "${PAUSE_IMAGE}" /etc/containerd/config.toml || die "image pause non appliquée"
 
 cat > /etc/crictl.yaml <<CONF
 runtime-endpoint: unix:///run/containerd/containerd.sock

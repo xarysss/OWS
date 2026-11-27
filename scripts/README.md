@@ -5,7 +5,8 @@ les valeurs viennent de `OS_CLOUD`, des fichiers générés par OpenTofu ou de V
 
 | Script | Rôle |
 |---|---|
-| `deploy-cluster.sh` | Orchestrateur : `prereqs`, `init`, `join`, `kubeconfig`, `cilium`, `argocd`, `status`, `upgrade 1.31`, `all` |
+| `deploy-cluster.sh` | Orchestrateur : `prereqs`, `init`, `join`, `kubeconfig`, `cilium`, `argocd`, `validate`, `tunnel`, `status`, `upgrade 1.31`, `all` |
+| `validate-cluster.sh` | Contrôles d'acceptation (nœuds, pods système, Cilium, VIP, pod de test), via `deploy-cluster.sh validate` |
 | `vault-bootstrap.sh` | Vault : `init`, `unseal`, `configure`, `seed` |
 | `etcd-snapshot.sh` | Sauvegarde etcd avant upgrade |
 | `versions.env` | Versions figées (Kubernetes, kube-vip, Cilium, ArgoCD) |

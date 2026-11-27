@@ -91,9 +91,10 @@ export KUBECONFIG=~/.kube/ows.conf
 kubectl get nodes -o wide
 ```
 
-Validation de la phase 1 :
+Validation de la phase 1 (détail et résultat : [validation-1-1.md](validation-1-1.md)) :
 
 ```bash
+./scripts/deploy-cluster.sh validate   # nœuds, pods système, Cilium, VIP, pod de test
 kubectl -n kube-system exec ds/cilium -- cilium-dbg status --brief
 # Test réseau complet (≈ 5 min, crée puis supprime le namespace cilium-test)
 cilium connectivity test       # CLI cilium : https://github.com/cilium/cilium-cli
