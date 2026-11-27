@@ -1,25 +1,16 @@
 # Documentation
 
-Documents prévus, créés au fil des phases :
+Point d'entrée : [guide-installation.md](guide-installation.md).
 
-| Fichier | Contenu | Phase |
+| Fichier | Contenu | Ticket |
 |---|---|---|
-| `00-cadrage.md` | Contexte Kubenstein, objectifs, organisation | 0 |
-| `01-outils.md` | Installation des outils sur os-compute-6 | 1 |
-| `02-audit-openstack.md` | Quotas, images, gabarits, réseaux, dimensionnement | 2 |
-| `03-infrastructure.md` | Infra OpenTofu : réseau, VM, volumes, VIP | 3 |
-| `04-installation-kubernetes.md` | Guide d'installation kubeadm HA + Cilium | 4-5 |
-| `05-gitops.md` | ArgoCD, app-of-apps | 6 |
-| `06-reseau.md` | MetalLB, Ingress / Gateway API | 7 |
-| `07-stockage.md` | Rook-Ceph, S3 | 8 |
-| `08-secrets.md` | Gestion des secrets : Vault + External Secrets | 9 |
-| `09-supervision.md` | Prometheus, Grafana, alertes | 10 |
-| `10-sauvegarde.md` | Velero, test de restauration | 11 |
-| `11-bonus.md` | Logs (EFK), application de démonstration | 12 |
-| `12-redeploiement.md` | Procédure de reconstruction complète | 13 |
-| `13-upgrade-1.31.md` | Mise à niveau 1.30 → 1.31 | 14 |
-| `14-helm-vs-operator.md` | Justification des choix Helm / Operator | 15 |
-| `15-couts-et-prix.md` | Coûts, prix proposé, avantages et limites | 15 |
-| `16-retex.md` | Retour d'expérience | 15 |
+| [guide-installation.md](guide-installation.md) | De zéro au cluster complet, recette, redéploiement | #5, #6, #14 |
+| [secrets-vault.md](secrets-vault.md) | Vault + External Secrets, configuration des control planes | #10 |
+| [upgrade-1.31.md](upgrade-1.31.md) | Procédure 1.30 → 1.31, retour arrière, journal | #15 |
+| [choix-helm-operator.md](choix-helm-operator.md) | Justification Helm / Operator par composant | #16 |
+| [dossier-commercial.md](dossier-commercial.md) | Offre, coûts, prix, comparaison EKS, avantages et limites | #16 |
+| [plan-slides-retex.md](plan-slides-retex.md) | Plan des slides et RETEX | #16 |
+| [grafana-ows-overview.json](grafana-ows-overview.json) | Tableau Grafana (import manuel possible) | #11 |
 
-Les schémas vont dans `docs/images/`, les slides dans `docs/rendu/`.
+À venir : audit OpenStack (#3), compte rendu des tests (#5 à #13).
+Les schémas vont dans `docs/images/`.
