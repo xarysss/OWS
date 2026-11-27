@@ -104,10 +104,10 @@ web_ip=$(kubectl -n "$NS" get pod -l app=web -o jsonpath='{.items[0].status.podI
 check "pod -> pod inter-nœuds (${web_ip})" kubectl -n "$NS" exec client -- wget -q -O /dev/null -T 5 "http://${web_ip}/"
 check "DNS + Service (web.${NS}.svc.cluster.local)" \
   kubectl -n "$NS" exec client -- wget -q -O /dev/null -T 5 "http://web.${NS}.svc.cluster.local/"
-# CoreDNS répartit les requêtes entre les DNS amont du sous-réseau : 6 essais pour détecter
-# un résolveur défaillant (un seul en panne = une requête sur deux en échec dans les pods).
-check "DNS externe stable (registry.k8s.io, 6/6)" kubectl -n "$NS" exec client -- \
-  sh -c 'for i in 1 2 3 4 5 6; do nslookup -type=A registry.k8s.io. >/dev/null || exit 1; done'
+# CoreDNS répartit les requêtes entre les DNS amont du sous-réseau : 8 noms différents (le
+# cache de CoreDNS masquerait sinon l'échec) pour détecter un résolveur amont défaillant.
+check "DNS externe stable (8 noms)" kubectl -n "$NS" exec client -- sh -c   'for d in registry.k8s.io github.com ghcr.io quay.io docker.io kubernetes.io cilium.io helm.sh; do
+     nslookup -type=A "$d." >/dev/null || { echo "  $d : échec"; exit 1; }; done'
 
 if [[ "${KEEP:-0}" != 1 ]]; then
   kubectl delete namespace "$NS" --wait=false >/dev/null
