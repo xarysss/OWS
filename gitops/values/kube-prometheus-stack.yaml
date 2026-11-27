@@ -1,0 +1,101 @@
+# Prometheus + Alertmanager + Grafana (chart prometheus-community/kube-prometheus-stack).
+crds:
+  enabled: false        # fournies par l'Application prometheus-operator-crds
+
+defaultRules:
+  create: true
+  rules:
+    kubeProxy: false    # kube-proxy remplacé par Cilium
+
+kubeProxy:
+  enabled: false
+
+# kubeadm : métriques ouvertes sur 0.0.0.0 (kubernetes/kubeadm/kubeadm-init.yaml.tpl)
+kubeControllerManager:
+  service:
+    port: 10257
+    targetPort: 10257
+  serviceMonitor:
+    https: true
+    insecureSkipVerify: true
+kubeScheduler:
+  service:
+    port: 10259
+    targetPort: 10259
+  serviceMonitor:
+    https: true
+    insecureSkipVerify: true
+kubeEtcd:
+  service:
+    port: 2381
+    targetPort: 2381
+
+prometheus:
+  prometheusSpec:
+    retention: 15d
+    retentionSize: 18GB
+    # Récupérer toutes les ServiceMonitor/PodMonitor/règles du cluster, pas seulement
+    # celles portant le label du release.
+    serviceMonitorSelectorNilUsesHelmValues: false
+    podMonitorSelectorNilUsesHelmValues: false
+    ruleSelectorNilUsesHelmValues: false
+    probeSelectorNilUsesHelmValues: false
+    resources:
+      requests: { cpu: 300m, memory: 1Gi }
+      limits: { memory: 3Gi }
+    storageSpec:
+      volumeClaimTemplate:
+        spec:
+          storageClassName: ceph-block
+          accessModes: ["ReadWriteOnce"]
+          resources:
+            requests:
+              storage: 20Gi
+
+alertmanager:
+  alertmanagerSpec:
+    # Configuration de routage (URL du webhook) fournie par un Secret géré par
+    # External Secrets : gitops/manifests/external-secrets-config/alertmanager.yaml
+    useExistingSecret: true
+    configSecret: alertmanager-ows
+    storage:
+      volumeClaimTemplate:
+        spec:
+          storageClassName: ceph-block
+          accessModes: ["ReadWriteOnce"]
+          resources:
+            requests:
+              storage: 2Gi
+
+grafana:
+  # Identifiants lus dans le Secret grafana-admin (synchronisé depuis Vault).
+  admin:
+    existingSecret: grafana-admin
+    userKey: admin-user
+    passwordKey: admin-password
+  service:
+    type: LoadBalancer
+    port: 80
+    annotations:
+      metallb.universe.tf/loadBalancerIPs: 10.20.0.202
+  persistence:
+    enabled: true
+    storageClassName: ceph-block
+    size: 5Gi
+  defaultDashboardsTimezone: Europe/Paris
+  # Tableaux chargés depuis les ConfigMap labellisées grafana_dashboard=1
+  # (gitops/manifests/monitoring-dashboards/).
+  sidecar:
+    dashboards:
+      enabled: true
+      label: grafana_dashboard
+      labelValue: "1"
+      searchNamespace: ALL
+      folderAnnotation: grafana_folder
+      provider:
+        foldersFromFilesStructure: true
+  grafana.ini:
+    users:
+      default_language: fr-FR
+    analytics:
+      check_for_updates: false

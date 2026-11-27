@@ -1,0 +1,47 @@
+# Alertes propres à OWS (en plus des règles par défaut de kube-prometheus-stack).
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: ows-alerts
+  namespace: monitoring
+spec:
+  groups:
+    - name: ows.platform
+      rules:
+        - alert: OWSControlPlaneDegraded
+          expr: sum(up{job="apiserver"}) < 3
+          for: 5m
+          labels: { severity: warning }
+          annotations:
+            summary: "Moins de 3 API servers joignables ({{ $value }})"
+            description: "La HA tolère la perte d'un control plane, pas de deux."
+        - alert: OWSEtcdNoLeader
+          expr: max(etcd_server_has_leader) == 0
+          for: 1m
+          labels: { severity: critical }
+          annotations:
+            summary: "etcd n'a plus de leader"
+        - alert: OWSCephNotHealthy
+          expr: max(ceph_health_status) > 0
+          for: 15m
+          labels: { severity: warning }
+          annotations:
+            summary: "Ceph n'est pas HEALTH_OK depuis 15 min"
+        - alert: OWSVaultSealed
+          expr: min(vault_core_unsealed) == 0
+          for: 2m
+          labels: { severity: critical }
+          annotations:
+            summary: "Un pod Vault est scellé : lancer scripts/vault-bootstrap.sh unseal"
+        - alert: OWSBackupTooOld
+          expr: time() - max(velero_backup_last_successful_timestamp) > 129600
+          for: 10m
+          labels: { severity: warning }
+          annotations:
+            summary: "Aucune sauvegarde Velero réussie depuis plus de 36 h"
+        - alert: OWSArgoCDAppOutOfSync
+          expr: count(argocd_app_info{sync_status!="Synced"}) > 0
+          for: 30m
+          labels: { severity: info }
+          annotations:
+            summary: "Une Application ArgoCD est désynchronisée depuis 30 min"

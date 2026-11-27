@@ -1,0 +1,3 @@
+# CRD Prometheus Operator (chart prometheus-community/prometheus-operator-crds)
+# installées en premier : Cilium, Rook, MetalLB, Vault créent des ServiceMonitor.
+{}
