@@ -6,12 +6,15 @@
 |---|---|
 | `00-clean-compute.sh` | Sauvegarde puis retire l'ancien rôle compute du cloud partagé (`CONFIRM=sortir-du-cloud`) |
 | `01-prepare.sh` | Kolla-Ansible, `/etc/kolla`, mots de passe générés, VG `cinder-volumes` sur `/dev/sda` |
-| `02-deploy.sh` | bootstrap-servers, prechecks, pull, deploy, post-deploy |
+| `02-deploy.sh` | bootstrap-servers, prechecks, pull, deploy, post-deploy (environ 20 minutes) |
+| `03-bootstrap-ows.sh` | Réseau externe, image Ubuntu 24.04, gabarits, projet `ows`, quotas, identifiant d'application |
 
-Reste à écrire : le projet `ows` (quotas, image, gabarits, réseau externe), qui demande une plage
-d'IP flottantes libres sur le réseau partagé.
+```bash
+FIP_START=10.202.136.100 FIP_END=10.202.136.130 ./03-bootstrap-ows.sh
+```
 
-À vérifier avant le déploiement : `eno1` atteint bien le réseau local (un test ARP vers la passerelle
-sans réponse tant que `eno1` appartenait à l'ancien pont `br-ex`).
+Déployé le 27/11/2026 : API `http://10.202.100.36:5000/v3`, Horizon `http://10.202.100.36`.
+`openstack --os-cloud ows token issue` réussit avec l'utilisateur Linux `ows`.
 
-Aucun de ces scripts n'a encore été exécuté avec succès sur le serveur.
+La plage d'IP flottantes ne répondait pas à un balayage ARP le jour du déploiement ; elle n'est pas
+réservée officiellement sur le réseau partagé. Non testés : redémarrage du serveur, accès à une VM.

@@ -49,7 +49,7 @@ if [ ! -s "$target" ]; then
   install -d -o ows -g ows -m 700 /home/ows/.config /home/ows/.config/openstack
   (umask 077; CRED="$cred" URL="$url" python3 - > "$target" <<'PY'
 import json, os
-c = json.loads(os.environ["CRED"])
+c = {k.lower(): v for k, v in json.loads(os.environ["CRED"]).items()}
 print(f"""clouds:
   ows:
     auth_type: v3applicationcredential
