@@ -5,6 +5,7 @@ les valeurs viennent de `OS_CLOUD`, des fichiers générés par OpenTofu ou de V
 
 | Script | Rôle |
 |---|---|
+| `install-outils.sh` | Phase 1, en root sur os-compute-6 : utilisateur `ows`, client OpenStack, OpenTofu, Ansible, kubectl, Helm |
 | `deploy-cluster.sh` | Orchestrateur : `prereqs`, `init`, `join`, `kubeconfig`, `cilium`, `argocd`, `status`, `upgrade 1.31`, `all` |
 | `vault-bootstrap.sh` | Vault : `init`, `unseal`, `configure`, `seed` |
 | `etcd-snapshot.sh` | Sauvegarde etcd avant upgrade |

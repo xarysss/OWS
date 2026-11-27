@@ -37,19 +37,22 @@ docs/                  ce guide, secrets, upgrade, choix techniques
 
 ## 2. Prérequis sur le poste d'administration (os-compute-6)
 
-Tout se lance depuis `/home/ows` sur os-compute-6, avec un utilisateur non root.
+Tout se lance depuis `/home/ows` sur os-compute-6, avec l'utilisateur non root `ows`. Le script `scripts/install-outils.sh`, lancé une fois en root, crée cet utilisateur et installe les outils (idempotent) :
 
 ```bash
-sudo dnf install -y git jq python3-pip
-pip install --user python-openstackclient
-# OpenTofu (paquet officiel)
-curl -fsSL https://get.opentofu.org/install-opentofu.sh | sh -s -- --install-method rpm
-# kubectl et Helm
-curl -fsSLo ~/.local/bin/kubectl "https://dl.k8s.io/release/v1.30.14/bin/linux/amd64/kubectl" && chmod +x ~/.local/bin/kubectl
-curl -fsSL https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
-
-git clone https://github.com/xarysss/OWS.git && cd OWS
+# en root sur os-compute-6
+git clone https://github.com/xarysss/OWS.git /tmp/OWS && /tmp/OWS/scripts/install-outils.sh
 ```
+
+| Outil | Version | Emplacement |
+|---|---|---|
+| Client OpenStack | 10.6 | venv `~/.venvs/ows`, lien dans `~/.local/bin` |
+| Ansible (ansible-core) | 2.21 | même venv |
+| OpenTofu | 1.13 | paquet RPM officiel (`/usr/bin/tofu`) |
+| kubectl | v1.30.14 | `~/.local/bin` (passer en 1.31 avec l'upgrade) |
+| Helm | `HELM_VERSION` de `scripts/versions.env` | `~/.local/bin` |
+
+Le script génère aussi la clé `~/.ssh/ows_ed25519` de l'utilisateur `ows` (utilisée par OpenTofu pour les VM), ajoute `OS_CLOUD=ows` et `KUBECONFIG=~/.kube/ows.conf` au `.bashrc` et clone le dépôt dans `~/OWS`. Pour se connecter en `ows` par SSH, ajouter sa clé publique dans `/home/ows/.ssh/authorized_keys`.
 
 Identifiants OpenStack : télécharger `clouds.yaml` depuis Horizon (Identité > Identifiants d'application, nom `ows`) et le placer dans `~/.config/openstack/clouds.yaml` (`chmod 600`). Il ne va jamais dans le dépôt.
 
@@ -62,7 +65,7 @@ openstack flavor list
 openstack network list --external
 ```
 
-Clé SSH : `~/.ssh/ows_ed25519` (+ `.pub`).
+Clé SSH : `~/.ssh/ows_ed25519` (+ `.pub`), générée par `install-outils.sh`.
 
 ## 3. Créer les VM (phase 1 : 1 CP + 1 worker)
 
