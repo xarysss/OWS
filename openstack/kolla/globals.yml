@@ -27,3 +27,7 @@ cinder_volume_group: "cinder-volumes"
 
 # Images publiques quay.io/openstack.kolla : prévues pour les tests, acceptées pour cette SAE.
 kolla_test_images: "yes"
+
+# La cible iSCSI (lioadm) a besoin de configfs dans le conteneur cinder_volume.
+cinder_volume_extra_volumes:
+  - "/sys/kernel/config:/sys/kernel/config"

@@ -37,7 +37,13 @@ secret=/root/ows-user.password
 has user show ows || os user create --project ows --password "$(cat "$secret")" ows >/dev/null
 os role add --project ows --user ows member
 os quota set --instances 10 --cores 24 --ram 81920 --volumes 10 --gigabytes 600 \
-  --floating-ips 5 ows
+  --floating-ips 8 ows
+
+# Le fournisseur OpenTofu cherche Cinder sous le type "volumev3".
+has service show cinderv3 || os service create --name cinderv3 volumev3 >/dev/null
+for iface in public internal; do
+  [ -n "$(os endpoint list --service cinderv3 --interface "$iface" -f value -c ID)" ] ||     os endpoint create --region RegionOne cinderv3 "$iface" http://10.202.100.36:8776/v3 >/dev/null
+done
 
 # Identifiant d'application pour l'utilisateur Linux "ows" (OpenTofu, client openstack).
 target=/home/ows/.config/openstack/clouds.yaml

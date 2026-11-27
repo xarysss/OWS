@@ -32,4 +32,8 @@ if ! vgs cinder-volumes >/dev/null 2>&1; then
   pvcreate "$disk"
   vgcreate cinder-volumes "$disk"
 fi
+# Modules noyau de la cible iSCSI de Cinder, chargés maintenant et à chaque démarrage.
+printf '%s
+' target_core_mod iscsi_target_mod > /etc/modules-load.d/ows-cinder.conf
+modprobe -a target_core_mod iscsi_target_mod
 echo "Préparation terminée."
