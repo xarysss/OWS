@@ -1,0 +1,19 @@
+# Copier en terraform.tfvars (ignoré par Git) et ajuster après l'audit du projet.
+os_cloud             = "ows"
+prefix               = "ows"
+
+# Phase 1 : 1 + 1      Phase 2 : 3 + 3
+control_plane_count  = 1
+worker_count         = 1
+
+image_name           = "ubuntu-24.04"
+flavor_control_plane = "ows.cp"      # 3 vCPU / 8 Go
+flavor_worker        = "ows.worker"  # 4 vCPU / 12-16 Go
+boot_volume_size     = 40
+ceph_volume_size     = 100
+
+external_network_name = "public"
+subnet_cidr           = "10.20.0.0/24"
+admin_cidrs           = ["10.202.100.0/24"]
+ingress_cidrs         = ["10.202.0.0/16"]
+ssh_public_key_path   = "~/.ssh/ows_ed25519.pub"

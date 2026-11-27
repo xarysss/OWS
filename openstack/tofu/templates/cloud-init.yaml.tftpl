@@ -1,0 +1,30 @@
+#cloud-config
+# Minimal : le reste (containerd, kubeadm...) est fait par scripts/ pour rester
+# rejouable hors OpenStack.
+hostname: ${hostname}
+fqdn: ${hostname}.ows.local
+preserve_hostname: false
+manage_etc_hosts: false
+package_update: true
+packages:
+  - curl
+  - gpg
+  - ca-certificates
+  - apt-transport-https
+  - jq
+  - chrony
+  - nfs-common
+  - lvm2
+timezone: Europe/Paris
+write_files:
+  - path: /etc/hosts
+    permissions: "0644"
+    content: |
+      127.0.0.1 localhost
+      ${api_vip} k8s-api.ows.local k8s-api
+%{ for name, ip in hosts ~}
+      ${ip} ${name}.ows.local ${name}
+%{ endfor ~}
+runcmd:
+  - swapoff -a
+  - sed -i '/\sswap\s/s/^/#/' /etc/fstab

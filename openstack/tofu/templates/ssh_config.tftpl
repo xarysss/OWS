@@ -1,0 +1,18 @@
+# Généré par OpenTofu. Usage : ssh -F scripts/ssh_config ows-cp-1
+Host *
+  User ubuntu
+  IdentityFile ~/.ssh/ows_ed25519
+  StrictHostKeyChecking accept-new
+  UserKnownHostsFile ~/.ssh/known_hosts_ows
+  ServerAliveInterval 30
+
+Host ${first}
+  HostName ${bastion}
+%{ for n, ip in nodes ~}
+%{ if n != first ~}
+
+Host ${n}
+  HostName ${ip}
+  ProxyJump ${first}
+%{ endif ~}
+%{ endfor ~}

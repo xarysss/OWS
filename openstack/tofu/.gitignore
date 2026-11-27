@@ -1,0 +1,9 @@
+.terraform/
+.terraform.lock.hcl.bak
+*.tfstate
+*.tfstate.*
+terraform.tfvars
+*.auto.tfvars
+crash.log
+clouds.yaml
+secure.yaml
