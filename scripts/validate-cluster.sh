@@ -41,19 +41,21 @@ for n in "${CP_NAMES[@]}"; do
 done
 
 log "2. Pods système"
+# Juste après l'installation de Cilium, hubble-relay met ~1 min à passer Ready : on attend.
 for _ in $(seq 1 30); do
   pending=$(kubectl get pods -n kube-system --no-headers | awk '$3!="Running" && $3!="Completed"' | wc -l)
-  [[ $pending -eq 0 ]] && break; sleep 10
+  notready=$(kubectl get pods -n kube-system --no-headers | awk '$3=="Running" {split($2,a,"/"); if (a[1]!=a[2]) print}' | wc -l)
+  [[ $pending -eq 0 && $notready -eq 0 ]] && break; sleep 10
 done
 kubectl get pods -n kube-system -o wide
 check "tous les pods kube-system Running/Completed" test "$pending" -eq 0
-notready=$(kubectl get pods -n kube-system --no-headers | awk '$3=="Running" {split($2,a,"/"); if (a[1]!=a[2]) print}' | wc -l)
 check "tous les conteneurs Ready" test "$notready" -eq 0
 check "CoreDNS disponible" kubectl -n kube-system rollout status deploy/coredns --timeout=60s
 
 log "3. Cilium"
 check "agent Cilium OK" bash -c "kubectl -n kube-system exec ds/cilium -c cilium-agent -- cilium-dbg status --brief | grep -q OK"
-kubectl -n kube-system exec ds/cilium -c cilium-agent -- cilium-dbg status | grep -E 'KubeProxyReplacement|Routing|Cluster health' || true
+kubectl -n kube-system exec ds/cilium -c cilium-agent -- cilium-dbg status | grep -E 'KubeProxyReplacement|Routing' || true
+check "santé Cilium : tous les nœuds joignables" bash -c "kubectl -n kube-system exec ds/cilium -c cilium-agent -- cilium-dbg status | grep -E 'Cluster health:\s+([0-9]+)/\1 reachable'"
 check "kube-proxy absent (remplacé par Cilium)" bash -c "! kubectl -n kube-system get ds kube-proxy >/dev/null 2>&1"
 
 log "4. VIP de l'API ${API_VIP} (kube-vip)"
@@ -102,7 +104,8 @@ web_ip=$(kubectl -n "$NS" get pod -l app=web -o jsonpath='{.items[0].status.podI
 check "pod -> pod inter-nœuds (${web_ip})" kubectl -n "$NS" exec client -- wget -qO- -T 5 "http://${web_ip}/"
 check "DNS + Service (web.${NS}.svc.cluster.local)" \
   kubectl -n "$NS" exec client -- wget -qO- -T 5 "http://web.${NS}.svc.cluster.local/"
-check "DNS externe (registry.k8s.io)" kubectl -n "$NS" exec client -- nslookup registry.k8s.io
+# -type=A : la résolution AAAA est refusée par le DNS amont d'OpenStack, sans incidence.
+check "DNS externe (registry.k8s.io)" kubectl -n "$NS" exec client -- nslookup -type=A registry.k8s.io
 
 if [[ "${KEEP:-0}" != 1 ]]; then
   kubectl delete namespace "$NS" --wait=false >/dev/null
