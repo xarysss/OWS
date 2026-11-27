@@ -11,7 +11,9 @@
 # Options d'environnement :
 #   CP_COUNT=3 WORKER_COUNT=3            taille visée (défaut : HA 3 + 3)
 #   CP_VCPU=3 CP_RAM_GB=8                gabarit control plane visé
-#   WORKER_VCPU=4 WORKER_RAM_GB=16       gabarit worker visé
+#   WORKER_VCPU=4 WORKER_RAM_GB=12       gabarit worker minimum (12-16 Go)
+#   ADMIN_OPENRC=/etc/kolla/admin-openrc.sh  lit en admin ce que le projet ne voit pas
+#                                        (IP libres du réseau externe, pools Cinder, hyperviseurs)
 #   BOOT_GB=40 CEPH_GB=100               disque système et volume Ceph par worker
 #   FIP_NEEDED=5                         API + bastion + ArgoCD/Grafana/Vault
 #   FLAVOR_CP=ows.cp FLAVOR_WORKER=ows.worker IMAGE_NAME=ubuntu-24.04 EXT_NET=public
@@ -29,7 +31,7 @@ done
 
 export CP_COUNT=${CP_COUNT:-3} WORKER_COUNT=${WORKER_COUNT:-3}
 export CP_VCPU=${CP_VCPU:-3} CP_RAM_GB=${CP_RAM_GB:-8}
-export WORKER_VCPU=${WORKER_VCPU:-4} WORKER_RAM_GB=${WORKER_RAM_GB:-16}
+export WORKER_VCPU=${WORKER_VCPU:-4} WORKER_RAM_GB=${WORKER_RAM_GB:-12}
 export BOOT_GB=${BOOT_GB:-40} CEPH_GB=${CEPH_GB:-100} FIP_NEEDED=${FIP_NEEDED:-5}
 export FLAVOR_CP=${FLAVOR_CP:-ows.cp} FLAVOR_WORKER=${FLAVOR_WORKER:-ows.worker}
 export IMAGE_NAME=${IMAGE_NAME:-ubuntu-24.04} EXT_NET=${EXT_NET:-public}
@@ -45,6 +47,14 @@ trap 'rm -rf "$D"' EXIT
 get() {
   local f=$1; shift
   openstack "$@" -f json >"$D/$f.json" 2>"$D/$f.err" || echo "null" >"$D/$f.json"
+}
+# get_admin : idem avec les droits admin si ADMIN_OPENRC est fourni
+get_admin() {
+  if [[ -n ${ADMIN_OPENRC:-} ]]; then
+    ( unset OS_CLOUD; set +u; source "$ADMIN_OPENRC"; get "$@" )
+  else
+    get "$@"
+  fi
 }
 
 echo "Audit en cours (OS_CLOUD=${OS_CLOUD:-<openrc>})…" >&2
@@ -65,16 +75,16 @@ get keypairs     keypair list
 get extensions   extension list --network
 get voltypes     volume type list --long
 get volumes      volume list --long
-get volservices  volume service list
-get pools        volume backend pool list --long
-get hypervisors  hypervisor list --long
-get computesvc   compute service list
-get netagents    network agent list
+get_admin volservices  volume service list
+get_admin pools        volume backend pool list --long
+get_admin hypervisors  --os-compute-api-version 2.87 hypervisor list --long
+get_admin computesvc   compute service list
+get_admin netagents    network agent list
 
 # Disponibilité des IP du réseau externe (souvent réservé à l'admin)
 EXT_ID=$(openstack network show "$EXT_NET" -f value -c id 2>/dev/null || true)
 if [[ -n $EXT_ID ]]; then
-  get ipavail ip availability show "$EXT_ID"
+  get_admin ipavail ip availability show "$EXT_ID"
 else
   echo null >"$D/ipavail.json"
 fi
@@ -126,6 +136,12 @@ def i(v, s=None):
 
 cp, wk = i(E["CP_COUNT"]), i(E["WORKER_COUNT"])
 cpv, cpr, wv, wr = i(E["CP_VCPU"]), i(E["CP_RAM_GB"]), i(E["WORKER_VCPU"]), i(E["WORKER_RAM_GB"])
+min_cp, min_wk = (cpv, cpr), (wv, wr)
+# Le besoin se calcule sur les gabarits réels quand ils existent (sinon sur les minimums)
+for f in (load("flavors") or []):
+    n, v, r = g(f, "Name", "name"), i(g(f, "VCPUs", "vcpus"), 0), i(g(f, "RAM", "ram"), 0) // 1024
+    if n == E["FLAVOR_CP"]: cpv, cpr = max(v, cpv), max(r, cpr)
+    if n == E["FLAVOR_WORKER"]: wv, wr = max(v, wv), max(r, wr)
 boot, ceph, fipn = i(E["BOOT_GB"]), i(E["CEPH_GB"]), i(E["FIP_NEEDED"])
 lb = 3  # ports MetalLB exposés (argocd, grafana, vault)
 
@@ -174,10 +190,11 @@ hdr = len(out)  # la synthèse s'insère ici
 cat = load("catalog") or []
 types = {g(c, "Type", "type") for c in cat}
 w("## Services\n")
-for t in ["identity", "compute", "network", "image", "volumev3", "placement", "load-balancer"]:
+vol = "block-storage" if "block-storage" in types else "volumev3"
+for t in ["identity", "compute", "network", "image", vol, "placement", "load-balancer"]:
     w(f"- `{t}` : {'présent' if t in types else 'absent'}")
 w("")
-miss = [t for t in ["compute", "network", "image", "volumev3"] if t not in types]
+miss = [t for t in ["compute", "network", "image", vol] if t not in types]
 verdict("Services Nova/Neutron/Glance/Cinder", not miss and bool(cat), "manque " + ", ".join(miss) if miss else "OK")
 
 # ---------- Quotas ----------
@@ -194,6 +211,7 @@ elif isinstance(q, dict):
             rows[k.lower()] = (i(g(v, "limit")), i(g(v, "in_use"), 0), i(g(v, "reserved"), 0))
         else:
             rows[k.lower()] = (i(v), None, 0)
+w("État : le quota total doit couvrir le besoin du cluster ; « utilisé » inclut les ressources `ows-*` déjà créées.\n")
 w("| Ressource | Quota | Utilisé | Libre | Besoin | État |")
 w("|---|---|---|---|---|---|")
 quota_ko = []
@@ -210,7 +228,7 @@ for res, n in need.items():
     if lim < 0:
         w(f"| {res} | illimité | {used if used is not None else '?'} | illimité | {n} | OK |"); continue
     free = lim - (used or 0) - (resv or 0)
-    ok = free >= n
+    ok = lim >= n  # le quota total couvre le cluster (ses propres ressources comptent dans « utilisé »)
     if not ok: quota_ko.append(res)
     unit = " Mo" if res == "ram" else (" Go" if res == "gigabytes" else "")
     w(f"| {res} | {lim}{unit} | {used if used is not None else '?'}{unit} | {free}{unit} | {n}{unit} | {'OK' if ok else '**insuffisant**'} |")
@@ -229,7 +247,7 @@ w("|---|---|---|---|---|")
 for f in sorted(fl, key=lambda f: (fv(f), fr(f))):
     w(f"| {g(f, 'Name', 'name')} | {fv(f)} | {fr(f)//1024} Go | {fd(f)} Go | {g(f, 'Is Public', 'is_public', 'os-flavor-access:is_public')} |")
 w("")
-for role, name, v, r in [("control plane", E["FLAVOR_CP"], cpv, cpr), ("worker", E["FLAVOR_WORKER"], wv, wr)]:
+for role, name, (v, r) in [("control plane", E["FLAVOR_CP"], min_cp), ("worker", E["FLAVOR_WORKER"], min_wk)]:
     exact = [f for f in fl if g(f, "Name", "name") == name]
     if exact:
         f = exact[0]; ok = fv(f) >= v and fr(f) >= r * 1024
@@ -281,7 +299,8 @@ verdict(f"Réseau externe `{E['EXT_NET']}`", True if E["EXT_NET"] in names else 
 nets = load("networks") or []
 own = [g(n, "Name", "name") for n in nets if str(g(n, "Name", "name", default="")).startswith("ows-")]
 w(f"Réseaux `ows-*` déjà présents : {', '.join(own) if own else 'aucun'}.\n")
-k8s = [s for s in subs if str(g(s, "Subnet", "cidr")).startswith("10.20.0.")]
+k8s = [s for s in subs if str(g(s, "Subnet", "cidr")).startswith("10.20.0.")
+       and not str(g(s, "Name", "name", default="")).startswith("ows-")]  # ows-* = le cluster lui-même
 if k8s:
     verdict("Plage 10.20.0.0/24 libre", None, f"déjà utilisée par {g(k8s[0], 'Name', 'name')}")
 
@@ -345,7 +364,8 @@ pools = load("pools")
 cap = None
 if isinstance(pools, list) and pools:
     for p in pools:
-        tot = g(p, "Total Capacity", "total_capacity_gb"); fr_ = g(p, "Free Capacity", "free_capacity_gb")
+        c = g(p, "Capabilities", "capabilities") or p
+        tot = g(c, "Total Capacity", "total_capacity_gb"); fr_ = g(c, "Free Capacity", "free_capacity_gb")
         w(f"- pool `{g(p, 'Name', 'name')}` : {fr_} Go libres sur {tot} Go")
         try: cap = (cap or 0) + float(fr_)
         except Exception: pass
@@ -371,15 +391,24 @@ if isinstance(hv, list) and hv:
         w(f"| {g(h, 'Hypervisor Hostname', 'name')} | {g(h, 'State', 'state')} | "
           f"{g(h, 'vCPUs Used', 'vcpus_used', default='?')} / {g(h, 'vCPUs', 'vcpus', default='?')} | "
           f"{g(h, 'Memory MB Used', 'memory_mb_used', default='?')} / {g(h, 'Memory MB', 'memory_mb', default='?')} Mo |")
+    try:
+        fram = sum(i(g(h, "Memory MB", "memory_mb"), 0) - i(g(h, "Memory MB Used", "memory_mb_used"), 0) for h in hv)
+        fcpu = sum(i(g(h, "vCPUs", "vcpus"), 0) * 4 - i(g(h, "vCPUs Used", "vcpus_used"), 0) for h in hv)
+        verdict("Capacité physique", fram >= need["ram"] and fcpu >= need["cores"],
+                f"{fram // 1024} Go de RAM libres (besoin {need['ram'] // 1024}), {fcpu} vCPU placables à 4:1 (besoin {need['cores']})")
+    except Exception:
+        pass
     w("\nNova applique ses ratios d'allocation (vCPU 4:1 et RAM 1:1 par défaut depuis 2023.1) via Placement.")
 else:
     w(f"Non lisible avec ces droits : `{err('hypervisors')}`.")
 w("")
 for name, key in [("Services Nova", "computesvc"), ("Agents Neutron", "netagents")]:
     lst = load(key)
-    if isinstance(lst, list):
+    if isinstance(lst, list) and lst:
         down = [g(s, "Binary", "binary", "Agent Type") for s in lst if str(g(s, "State", "state", "Alive", default="up")).lower() in ("down", "false", "xxx")]
         verdict(name, not down, ("en panne : " + ", ".join(map(str, down))) if down else f"{len(lst)} actifs")
+    elif isinstance(lst, list):
+        w(f"- {name} : liste vide avec ces droits (lancer avec ADMIN_OPENRC).")
 
 # ---------- Synthèse ----------
 lab = {True: "OK", False: "**BLOQUANT**", None: "à faire"}
