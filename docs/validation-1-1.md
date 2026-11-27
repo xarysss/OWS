@@ -52,14 +52,62 @@ Le namespace `ows-validation` est supprimé à la fin (`KEEP=1` pour le garder).
 | Kubeconfig créé en 0644 puis restreint | créé directement en 0600 |
 | `ssh_config` absent : erreurs SSH peu claires | arrêt immédiat avec un message explicite |
 
-## Résultat
+## Résultat (27/11/2026)
 
-_À compléter après le déploiement (dépend des VM de la phase 3)._
+Déployé depuis os-compute-6 (utilisateur `ows`) sur les VM créées en phase 3. OpenTofu a
+créé les 6 VM du 3+3 ; pour cette phase, `scripts/cluster.env` est réduit à `ows-cp-1` et
+`ows-worker-1` (les 4 autres rejoignent en phase 5 avec le fichier complet). Durée de
+`prereqs` + `init` + `join` + `cilium` : environ 6 minutes.
 
 | Élément | Valeur |
 |---|---|
-| Date | |
-| Version Kubernetes | |
-| Cilium | 1.16.6 |
-| kube-vip | v0.8.9, VIP 10.20.0.10 |
-| Sortie de `validate` | |
+| Nœuds | `ows-cp-1` (10.20.0.11, control-plane) et `ows-worker-1` (10.20.0.21, worker), `Ready` |
+| Kubernetes | v1.30.14 (kubeadm), Ubuntu 24.04.5, noyau 6.8 |
+| Runtime | containerd 2.2.1 (d'où la correction `sandbox` ci-dessus) |
+| CNI | Cilium 1.16.6, tunnel VXLAN, `KubeProxyReplacement: True`, santé 2/2 |
+| VIP API | 10.20.0.10 portée par kube-vip v0.8.9 sur `ows-cp-1` ; IP flottante 10.202.136.130 utilisée par le kubeconfig (pas besoin du tunnel) |
+| Pods système | 16 pods `kube-system` Running/Completed, tous prêts |
+
+Sortie de `./scripts/deploy-cluster.sh validate` :
+
+```text
+  OK    2/2 nœuds Ready
+  OK    kubelet en v1.30.x sur tous les nœuds
+  OK    ows-cp-1 porte le rôle control-plane
+  OK    tous les pods kube-system Running/Completed
+  OK    tous les conteneurs Ready
+  OK    CoreDNS disponible
+  OK    agent Cilium OK
+  OK    santé Cilium : tous les nœuds joignables
+  OK    kube-proxy absent (remplacé par Cilium)
+  OK    bail kube-vip détenu (ows-cp-1)
+  OK    API joignable via la VIP depuis ows-worker-1
+  OK    déploiement web prêt
+  OK    pod web planifié sur un worker (ows-worker-1)
+  OK    pod client démarré sur ows-cp-1
+  OK    pod -> pod inter-nœuds (10.244.1.12)
+  OK    DNS + Service (web.ows-validation.svc.cluster.local)
+  registry.k8s.io : échec
+  ÉCHEC DNS externe stable (8 noms)
+```
+
+Le critère de la phase 4 est atteint : 2 nœuds Ready, pods système OK, pod de test joignable
+depuis l'autre nœud par son IP et par le DNS de son Service.
+
+### Point ouvert : un DNS amont refuse les requêtes
+
+Le sous-réseau `ows-subnet` distribue `1.1.1.1` et `9.9.9.9` (défaut de
+`openstack/tofu/variables.tf`). Depuis le réseau de l'IUT, `9.9.9.9` répond `REFUSED` à toutes
+les requêtes (testé depuis os-compute-6 et depuis `ows-cp-1`), alors que `1.1.1.1` et le
+résolveur local `10.255.255.200` répondent. CoreDNS répartit les requêtes entre les deux : une
+résolution externe sur deux échoue dans les pods. Les nœuds eux-mêmes ne sont pas gênés
+(systemd-resolved bascule sur l'autre serveur), d'où le succès des téléchargements d'images.
+
+Correction (phase 3, code OpenTofu) : `dns_nameservers = ["1.1.1.1", "10.255.255.200"]`, puis :
+
+```bash
+tofu apply                                                   # met à jour le sous-réseau
+for n in ows-cp-1 ows-worker-1; do ssh -F scripts/ssh_config $n sudo networkctl renew ens3; done
+kubectl -n kube-system rollout restart deploy/coredns        # relit /etc/resolv.conf
+./scripts/deploy-cluster.sh validate                          # le dernier contrôle doit passer
+```
