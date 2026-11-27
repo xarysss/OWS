@@ -96,7 +96,7 @@ depuis l'autre nœud par son IP et par le DNS de son Service.
 
 ### Point ouvert : un DNS amont refuse les requêtes
 
-Le sous-réseau `ows-subnet` distribue `1.1.1.1` et `9.9.9.9` (défaut de
+Le sous-réseau des VM distribue `1.1.1.1` et `9.9.9.9` (défaut de
 `openstack/tofu/variables.tf`). Depuis le réseau de l'IUT, `9.9.9.9` répond `REFUSED` à toutes
 les requêtes (testé depuis os-compute-6 et depuis `ows-cp-1`), alors que `1.1.1.1` et le
 résolveur local `10.255.255.200` répondent. CoreDNS répartit les requêtes entre les deux : une
