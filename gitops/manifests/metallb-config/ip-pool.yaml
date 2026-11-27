@@ -1,0 +1,25 @@
+# Plage réservée côté OpenStack : exclue du DHCP Neutron et autorisée dans
+# allowed_address_pairs des ports workers (openstack/tofu).
+apiVersion: metallb.io/v1beta1
+kind: IPAddressPool
+metadata:
+  name: ows-pool
+  namespace: metallb-system
+spec:
+  addresses:
+    - 10.20.0.200-10.20.0.223
+  autoAssign: true
+  avoidBuggyIPs: true
+---
+apiVersion: metallb.io/v1beta1
+kind: L2Advertisement
+metadata:
+  name: ows-l2
+  namespace: metallb-system
+spec:
+  ipAddressPools:
+    - ows-pool
+  nodeSelectors:
+    - matchExpressions:
+        - key: node-role.kubernetes.io/worker
+          operator: Exists

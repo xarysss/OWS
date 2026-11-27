@@ -1,0 +1,18 @@
+# MetalLB (chart metallb/metallb). Les pools et annonces L2 sont des CRD
+# déployées à part : gitops/manifests/metallb-config/.
+controller:
+  logLevel: info
+speaker:
+  logLevel: info
+  # Speakers uniquement sur les workers : seuls leurs ports OpenStack autorisent
+  # la plage MetalLB (allowed_address_pairs).
+  nodeSelector:
+    node-role.kubernetes.io/worker: ""
+  frr:
+    enabled: false          # mode L2 seulement
+prometheus:
+  serviceMonitor:
+    enabled: true
+  rbacPrometheus: true
+  serviceAccount: kube-prometheus-stack-prometheus
+  namespace: monitoring
