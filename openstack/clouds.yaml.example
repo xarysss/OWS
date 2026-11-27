@@ -4,7 +4,7 @@ clouds:
   ows:
     auth_type: v3applicationcredential
     auth:
-      auth_url: http://10.202.100.10:5000/v3
+      auth_url: http://10.202.100.36:5000/v3   # OpenStack tout-en-un (Kolla, os-compute-6)
       application_credential_id: "REMPLACER"
       application_credential_secret: "REMPLACER"
     region_name: RegionOne

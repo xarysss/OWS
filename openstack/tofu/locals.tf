@@ -11,5 +11,14 @@ locals {
 
   ssh_public_key = trimspace(file(pathexpand(var.ssh_public_key_path)))
 
+  # allowed-address-pairs des workers : la plage MetalLB + chaque IP de service exposée.
+  worker_pairs = distinct(concat(
+    [var.metallb_range.cidr],
+    [for n in values(var.service_floating_ips) : cidrhost(var.subnet_cidr, n)]
+  ))
+
+  flavor_cp     = var.create_flavors ? openstack_compute_flavor_v2.cp[0].name : var.flavor_control_plane
+  flavor_worker = var.create_flavors ? openstack_compute_flavor_v2.worker[0].name : var.flavor_worker
+
   common_tags = ["ows", "sae-cloud", "kubernetes"]
 }

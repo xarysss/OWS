@@ -40,6 +40,7 @@ override.tf.json
 # --- Générés par OpenTofu, propres à un déploiement ---
 scripts/cluster.env
 scripts/ssh_config
+scripts/hosts.txt
 
 # --- Divers ---
 *.retry

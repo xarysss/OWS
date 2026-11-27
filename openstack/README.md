@@ -13,5 +13,5 @@ volumes Ceph, port de VIP pour l'API (allowed-address-pairs).
 ```bash
 export OS_CLOUD=ows
 cd openstack/tofu
-tofu init && tofu plan && tofu apply
+tofu init && tofu plan && tofu apply   # détails : tofu/README.md
 ```

@@ -27,8 +27,10 @@ resource "openstack_networking_port_v2" "node" {
     ip_address = each.value
   }
 
+  # Les workers reçoivent aussi chaque IP de service exacte : avec OVN, c'est ce qui fait
+  # passer le port réservé en type « virtual » et rend son IP flottante joignable.
   dynamic "allowed_address_pairs" {
-    for_each = contains(local.cp_names, each.key) ? [local.api_vip] : [var.metallb_range.cidr]
+    for_each = contains(local.cp_names, each.key) ? [local.api_vip] : local.worker_pairs
     content {
       ip_address = allowed_address_pairs.value
     }
@@ -40,18 +42,22 @@ resource "openstack_networking_port_v2" "node" {
 resource "openstack_compute_instance_v2" "node" {
   for_each    = local.all_ips
   name        = each.key
-  flavor_name = contains(local.cp_names, each.key) ? var.flavor_control_plane : var.flavor_worker
+  flavor_name = contains(local.cp_names, each.key) ? local.flavor_cp : local.flavor_worker
   key_pair    = openstack_compute_keypair_v2.ows.name
+  image_id    = var.boot_from_volume ? null : data.openstack_images_image_v2.ubuntu.id
   tags        = concat(local.common_tags, [contains(local.cp_names, each.key) ? "control-plane" : "worker"])
 
-  block_device {
-    uuid                  = data.openstack_images_image_v2.ubuntu.id
-    source_type           = "image"
-    destination_type      = "volume"
-    volume_size           = var.boot_volume_size
-    volume_type           = var.volume_type
-    boot_index            = 0
-    delete_on_termination = true
+  dynamic "block_device" {
+    for_each = var.boot_from_volume ? [1] : []
+    content {
+      uuid                  = data.openstack_images_image_v2.ubuntu.id
+      source_type           = "image"
+      destination_type      = "volume"
+      volume_size           = var.boot_volume_size
+      volume_type           = var.volume_type
+      boot_index            = 0
+      delete_on_termination = true
+    }
   }
 
   network {
@@ -77,9 +83,9 @@ resource "openstack_compute_instance_v2" "node" {
   depends_on = [openstack_networking_router_interface_v2.k8s]
 }
 
-# ---------- Volumes OSD Ceph (vierges, un par worker) ----------
+# ---------- Volumes OSD Ceph (vierges, un par worker, /dev/vdb) ----------
 resource "openstack_blockstorage_volume_v3" "ceph" {
-  for_each    = toset(local.worker_names)
+  for_each    = var.ceph_volume_size > 0 ? toset(local.worker_names) : toset([])
   name        = "${each.key}-ceph-osd"
   size        = var.ceph_volume_size
   volume_type = var.volume_type
@@ -87,7 +93,7 @@ resource "openstack_blockstorage_volume_v3" "ceph" {
 }
 
 resource "openstack_compute_volume_attach_v2" "ceph" {
-  for_each    = toset(local.worker_names)
+  for_each    = openstack_blockstorage_volume_v3.ceph
   instance_id = openstack_compute_instance_v2.node[each.key].id
-  volume_id   = openstack_blockstorage_volume_v3.ceph[each.key].id
+  volume_id   = each.value.id
 }

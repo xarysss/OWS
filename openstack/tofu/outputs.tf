@@ -27,28 +27,12 @@ output "service_floating_ips" {
   }
 }
 
-# Fichier lu par scripts/deploy-cluster.sh (aucun secret dedans).
-resource "local_file" "cluster_env" {
-  filename        = "${path.module}/../../scripts/cluster.env"
-  file_permission = "0644"
-  content = templatefile("${path.module}/templates/cluster.env.tftpl", {
-    bastion         = openstack_networking_floatingip_v2.bastion.address
-    api_vip         = local.api_vip
-    api_floating_ip = var.api_floating_ip ? openstack_networking_floatingip_v2.api_vip[0].address : ""
-    cps             = local.cp_ips
-    workers         = local.worker_ips
-    subnet_cidr     = var.subnet_cidr
-    metallb_first   = cidrhost(var.subnet_cidr, var.metallb_range.first_hostnum)
-    metallb_last    = cidrhost(var.subnet_cidr, var.metallb_range.last_hostnum)
-  })
+output "ceph_volumes" {
+  description = "Volume OSD vierge attaché à chaque worker."
+  value       = { for k, v in openstack_compute_volume_attach_v2.ceph : k => v.device }
 }
 
-resource "local_file" "ssh_config" {
-  filename        = "${path.module}/../../scripts/ssh_config"
-  file_permission = "0644"
-  content = templatefile("${path.module}/templates/ssh_config.tftpl", {
-    bastion = openstack_networking_floatingip_v2.bastion.address
-    nodes   = local.all_ips
-    first   = local.cp_names[0]
-  })
+output "ssh" {
+  description = "Connexion aux nœuds (fichier généré par inventory.tf)."
+  value       = "ssh -F scripts/ssh_config ${local.cp_names[0]}   # depuis la racine du dépôt"
 }
