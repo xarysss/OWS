@@ -1,0 +1,70 @@
+# HashiCorp Vault (chart hashicorp/vault) en HA, stockage Raft intégré sur Ceph.
+# Initialisation et descellement : scripts/vault-bootstrap.sh, docs/secrets-vault.md.
+global:
+  enabled: true
+  tlsDisable: true      # trafic interne au cluster ; voir "Limites" dans la doc
+
+injector:
+  enabled: false        # on utilise External Secrets Operator, pas l'injecteur
+
+server:
+  resources:
+    requests: { cpu: 100m, memory: 256Mi }
+    limits: { memory: 512Mi }
+  dataStorage:
+    enabled: true
+    size: 5Gi
+    storageClass: ceph-block
+  auditStorage:
+    enabled: false
+  affinity: |
+    podAntiAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        - labelSelector:
+            matchLabels:
+              app.kubernetes.io/name: vault
+              component: server
+          topologyKey: kubernetes.io/hostname
+  ha:
+    enabled: true
+    replicas: 3
+    raft:
+      enabled: true
+      setNodeId: true
+      config: |
+        ui = true
+        listener "tcp" {
+          tls_disable = 1
+          address = "[::]:8200"
+          cluster_address = "[::]:8201"
+          telemetry {
+            unauthenticated_metrics_access = "true"
+          }
+        }
+        storage "raft" {
+          path = "/vault/data"
+          retry_join {
+            leader_api_addr = "http://vault-0.vault-internal:8200"
+          }
+          retry_join {
+            leader_api_addr = "http://vault-1.vault-internal:8200"
+          }
+          retry_join {
+            leader_api_addr = "http://vault-2.vault-internal:8200"
+          }
+        }
+        telemetry {
+          prometheus_retention_time = "30s"
+          disable_hostname = true
+        }
+        service_registration "kubernetes" {}
+
+ui:
+  enabled: true
+  serviceType: LoadBalancer
+  annotations:
+    metallb.universe.tf/loadBalancerIPs: 10.20.0.203
+
+serverTelemetry:
+  serviceMonitor:
+    enabled: true
