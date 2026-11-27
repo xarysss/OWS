@@ -101,11 +101,13 @@ kubectl -n "$NS" run client --image=busybox:1.36 --restart=Never \
   -- sleep 600 >/dev/null
 check "pod client démarré sur ${CP_NAMES[0]}" kubectl -n "$NS" wait --for=condition=Ready pod/client --timeout=2m
 web_ip=$(kubectl -n "$NS" get pod -l app=web -o jsonpath='{.items[0].status.podIP}')
-check "pod -> pod inter-nœuds (${web_ip})" kubectl -n "$NS" exec client -- wget -qO- -T 5 "http://${web_ip}/"
+check "pod -> pod inter-nœuds (${web_ip})" kubectl -n "$NS" exec client -- wget -q -O /dev/null -T 5 "http://${web_ip}/"
 check "DNS + Service (web.${NS}.svc.cluster.local)" \
-  kubectl -n "$NS" exec client -- wget -qO- -T 5 "http://web.${NS}.svc.cluster.local/"
-# -type=A : la résolution AAAA est refusée par le DNS amont d'OpenStack, sans incidence.
-check "DNS externe (registry.k8s.io)" kubectl -n "$NS" exec client -- nslookup -type=A registry.k8s.io
+  kubectl -n "$NS" exec client -- wget -q -O /dev/null -T 5 "http://web.${NS}.svc.cluster.local/"
+# CoreDNS répartit les requêtes entre les DNS amont du sous-réseau : 6 essais pour détecter
+# un résolveur défaillant (un seul en panne = une requête sur deux en échec dans les pods).
+check "DNS externe stable (registry.k8s.io, 6/6)" kubectl -n "$NS" exec client -- \
+  sh -c 'for i in 1 2 3 4 5 6; do nslookup -type=A registry.k8s.io. >/dev/null || exit 1; done'
 
 if [[ "${KEEP:-0}" != 1 ]]; then
   kubectl delete namespace "$NS" --wait=false >/dev/null
