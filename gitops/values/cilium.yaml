@@ -1,0 +1,63 @@
+# Cilium (chart cilium/cilium) — CNI + remplacement de kube-proxy + Hubble.
+# Installé une première fois par scripts/deploy-cluster.sh cilium, puis repris par ArgoCD
+# (gitops/apps/cilium.yaml) avec exactement ce fichier.
+kubeProxyReplacement: true
+# kube-proxy absent : Cilium doit joindre l'API directement, via la VIP kube-vip.
+k8sServiceHost: 10.20.0.10
+k8sServicePort: 6443
+
+ipam:
+  mode: kubernetes          # utilise podSubnet de kubeadm (10.244.0.0/16)
+
+routingMode: tunnel
+tunnelProtocol: vxlan       # le réseau OpenStack n'annonce pas les routes des pods
+# MTU : détecté automatiquement sur l'interface (1450 sur un réseau VXLAN Neutron).
+
+operator:
+  replicas: 2
+  prometheus:
+    enabled: true
+    serviceMonitor:
+      enabled: true
+
+prometheus:
+  enabled: true
+  serviceMonitor:
+    enabled: true
+    trustCRDsExist: true
+
+hubble:
+  enabled: true
+  metrics:
+    enableOpenMetrics: true
+    enabled:
+      - dns
+      - drop
+      - tcp
+      - flow
+      - port-distribution
+      - icmp
+      - httpV2:exemplars=true;labelsContext=source_ip,source_namespace,source_workload,destination_ip,destination_namespace,destination_workload,traffic_direction
+    serviceMonitor:
+      enabled: true
+  relay:
+    enabled: true
+  ui:
+    enabled: true
+    service:
+      type: LoadBalancer
+      annotations:
+        metallb.universe.tf/loadBalancerIPs: 10.20.0.204
+  tls:
+    auto:
+      enabled: true
+      method: cronJob       # certificats stables : pas de dérive à chaque sync ArgoCD
+      certValidityDuration: 1095
+
+# Les politiques réseau sont appliquées, mais tout est autorisé par défaut.
+policyEnforcementMode: default
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 256Mi

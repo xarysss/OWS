@@ -1,0 +1,52 @@
+# Reprise de l'installation faite par deploy-cluster.sh (même chart, mêmes values).
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: cilium
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
+spec:
+  project: ows-platform
+  sources:
+    - repoURL: https://helm.cilium.io
+      chart: cilium
+      targetRevision: 1.16.6
+      helm:
+        releaseName: cilium
+        valueFiles:
+          - $values/gitops/values/cilium.yaml
+    - repoURL: https://github.com/xarysss/OWS.git
+      targetRevision: main
+      ref: values
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: kube-system
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true
+      - RespectIgnoreDifferences=true
+    retry:
+      limit: 10
+      backoff:
+        duration: 30s
+        factor: 2
+        maxDuration: 10m
+  ignoreDifferences:
+    # Certificats Hubble régénérés par le CronJob du chart
+    - kind: Secret
+      name: hubble-server-certs
+      namespace: kube-system
+      jsonPointers: [/data]
+    - kind: Secret
+      name: hubble-relay-client-certs
+      namespace: kube-system
+      jsonPointers: [/data]
+    - kind: Secret
+      name: cilium-ca
+      namespace: kube-system
+      jsonPointers: [/data]

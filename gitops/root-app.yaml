@@ -1,0 +1,22 @@
+# App-of-apps : la seule ressource appliquée à la main (scripts/deploy-cluster.sh argocd).
+# Tout ce qui est dans gitops/apps/ est ensuite déployé par ArgoCD, dans l'ordre des
+# sync-waves : projet (-2) > ArgoCD, CRD (-1) > Cilium (0) > MetalLB, Rook (1)
+# > pools, Ceph (2) > Vault, ESO (3) > secrets (4) > supervision (5) > Velero (6-7).
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: ows-root
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/xarysss/OWS.git
+    targetRevision: main
+    path: gitops/apps
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: argocd
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true

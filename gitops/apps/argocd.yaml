@@ -1,0 +1,44 @@
+# Se gère lui-même. Les ServiceMonitor sont réactivés ici (CRD présentes).
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: argocd
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "-1"
+spec:
+  project: ows-platform
+  sources:
+    - repoURL: https://argoproj.github.io/argo-helm
+      chart: argo-cd
+      targetRevision: 7.7.16
+      helm:
+        releaseName: argocd
+        valueFiles:
+          - $values/gitops/values/argocd.yaml
+        parameters:
+          - name: controller.metrics.serviceMonitor.enabled
+            value: "true"
+          - name: server.metrics.serviceMonitor.enabled
+            value: "true"
+          - name: repoServer.metrics.serviceMonitor.enabled
+            value: "true"
+    - repoURL: https://github.com/xarysss/OWS.git
+      targetRevision: main
+      ref: values
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: argocd
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true
+    retry:
+      limit: 10
+      backoff:
+        duration: 30s
+        factor: 2
+        maxDuration: 10m

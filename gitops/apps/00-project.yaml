@@ -1,0 +1,28 @@
+# Projet ArgoCD qui borne ce que la plateforme a le droit de déployer.
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: ows-platform
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "-2"
+spec:
+  description: Socle de la plateforme OWS (réseau, stockage, secrets, supervision, sauvegarde)
+  sourceRepos:
+    - https://github.com/xarysss/OWS.git
+    - https://argoproj.github.io/argo-helm
+    - https://prometheus-community.github.io/helm-charts
+    - https://helm.cilium.io
+    - https://metallb.github.io/metallb
+    - https://charts.rook.io/release
+    - https://charts.external-secrets.io
+    - https://helm.releases.hashicorp.com
+    - https://vmware-tanzu.github.io/helm-charts
+  destinations:
+    - server: https://kubernetes.default.svc
+      namespace: "*"
+  clusterResourceWhitelist:
+    - group: "*"
+      kind: "*"
+  orphanedResources:
+    warn: true
