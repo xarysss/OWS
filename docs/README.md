@@ -4,6 +4,7 @@ Point d'entrée : [guide-installation.md](guide-installation.md).
 
 | Fichier | Contenu | Ticket |
 |---|---|---|
+| [audit-openstack.md](audit-openstack.md) | Audit du projet OpenStack : besoin, checklist, lancement | #3 |
 | [guide-installation.md](guide-installation.md) | De zéro au cluster complet, recette, redéploiement | #5, #6, #14 |
 | [secrets-vault.md](secrets-vault.md) | Vault + External Secrets, configuration des control planes | #10 |
 | [upgrade-1.31.md](upgrade-1.31.md) | Procédure 1.30 → 1.31, retour arrière, journal | #15 |
@@ -12,5 +13,5 @@ Point d'entrée : [guide-installation.md](guide-installation.md).
 | [plan-slides-retex.md](plan-slides-retex.md) | Plan des slides et RETEX | #16 |
 | [grafana-ows-overview.json](grafana-ows-overview.json) | Tableau Grafana (import manuel possible) | #11 |
 
-À venir : audit OpenStack (#3), compte rendu des tests (#5 à #13).
+À venir : résultats de l'audit OpenStack (#3), compte rendu des tests (#5 à #13).
 Les schémas vont dans `docs/images/`.
